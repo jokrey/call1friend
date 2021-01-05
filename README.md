@@ -1,6 +1,6 @@
-# call1friend
+# Call1Friend
 
-A Flutter application capable of connecting you to 1 friend via a WebRTC video call.
+This is a flutter application capable of connecting you to 1 friend via a WebRTC video call.
 
 Does NOT provide a 'calling' feature (with a notification or something similar).
 
