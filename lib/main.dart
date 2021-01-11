@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:call1friend/firebase_topic_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jokrey_utilities/jokrey_utilities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(MyApp());
@@ -15,6 +17,23 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  var notifications = FirebaseTopicSubscribeHelper()
+    ..init();
+
+  BuildContext withinSafeAreaContext = null;
+  _MyAppState() {
+    notifications.addMessageCallback((title, body) =>
+      Scaffold.of(withinSafeAreaContext)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
+          SnackBar(
+              content: Text(body),
+              duration: Duration(seconds: 10)
+          )
+      )
+    );
+  }
+
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final _enterProtocol = TextEditingController()..text = "https";
   final _enterHost = TextEditingController();
@@ -23,7 +42,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final _enterOwnName = TextEditingController();
   final _enterFriendName = TextEditingController();
 
-  _attemptConnect(BuildContext context) async {
+  _attemptConnect() async {
+    if(notifications.isSubscribed()) {
+      //TODO - the following cannot work without api key - technically this would require another server
+      var response = await http.post(
+        'https://fcm.googleapis.com/fcm/send',
+        headers: {
+          'AUTHORIZATION': 'key=<API_ACCESS_KEY>',
+          'Content-Type': 'application/json',
+        },
+        body:
+          '{\"message\": '+
+            '{\"topic\": '+notifications.currentTopic+','+
+              '\"notification\": {'+
+                '\"title\": \"Your Friend Joined\",'+
+                '\"body\": \"Background message body\"'+
+              '}'+
+            '}'+
+          '}',
+      );
+      print('notification response: '+response.toString());
+  }
+
     var initialConnectSuccessful = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -42,7 +82,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
 
     if(!initialConnectSuccessful) {
-      Scaffold.of(context)
+      Scaffold.of(withinSafeAreaContext)
         ..removeCurrentSnackBar()
         ..showSnackBar(
             SnackBar(
@@ -62,78 +102,128 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: Scaffold(
         body: SafeArea( child: Builder(
-          builder: (context) => Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Row(
-                children: [
-                  Text("Enter server: ", textScaleFactor: 1.1),
-                  Flexible(
-                    flex: 15,
-                    child: TextField(
-                      controller: _enterProtocol,
-                      textAlign: TextAlign.right,
-                      enabled: false,
-                      decoration: InputDecoration(hintText: 'http/https'),
+          builder: (context) {
+            withinSafeAreaContext = context;
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Row(
+                  children: [
+                    Text("Enter server: ", textScaleFactor: 1.1),
+                    Flexible(
+                      flex: 15,
+                      child: TextField(
+                        controller: _enterProtocol,
+                        textAlign: TextAlign.right,
+                        enabled: false,
+                        decoration: InputDecoration(hintText: 'http/https'),
+                      ),
                     ),
-                  ),
-                  Text("://"),
-                  Flexible(
-                    flex: 60,
-                    child: TextField(
-                      controller: _enterHost,
-                      textAlign: TextAlign.right,
-                      decoration: InputDecoration(hintText: 'address'),
+                    Text("://"),
+                    Flexible(
+                      flex: 60,
+                      child: TextField(
+                        controller: _enterHost,
+                        textAlign: TextAlign.right,
+                        decoration: InputDecoration(hintText: 'address'),
+                      ),
                     ),
-                  ),
-                  Text(":"),
-                  Flexible(
-                    flex: 25,
-                    child: TextField(
-                      controller: _enterPort,
-                      decoration: InputDecoration(hintText: 'port'),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly
-                      ],
+                    Text(":"),
+                    Flexible(
+                      flex: 25,
+                      child: TextField(
+                        controller: _enterPort,
+                        decoration: InputDecoration(hintText: 'port'),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
+                      ),
                     ),
+                  ],
+                ),
+                WidthFillingTextButton("Configure Ice Servers ("+iceServers['iceServers'].length.toString()+")",
+                  onPressed: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder:
+                        (context) => IceServersConfigurationWidget()
+                    ));
+                    setState(() {}); //rebuild to rebuild ice server count in text field above
+                  }
+                ),
+                Row(
+                  children: [
+                    Flexible(flex: 70, child: TextField(
+                      controller: _enterRoomName,
+                      decoration: InputDecoration(
+                        labelText: "Room",
+                        hintText: 'Enter server \'room\''
+                      ),
+                    ),),
+                    Flexible(flex: 30, child: Row(children: [
+                      Flexible(flex: 70, child: RaisedButton(
+                        child: Text(notifications.isSubscribed()?"Stop\nNotify":"Notify\nMe"),
+                        onPressed: () async {
+                          if(!notifications.isSubscribed()) {
+                            var subscription = _enterHost.text + "-" +
+                                _enterRoomName.text;
+                            notifications.subscribeTo(subscription)
+                                .then((value) => setState(() {}));
+                            showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text("Subscribed"),
+                                  content: Text("You will now receive notifications if someone enters:\n" +
+                                      _enterRoomName.text + " at "+_enterHost.text),
+                                )
+                            );
+                          } else {
+                            notifications.unsubscribeFromCurrent()
+                                .then((value) => setState(() {}));
+                          }
+                        },
+                        color: DEFAULT_BUTTON_BG_COLOR,
+                        textColor: Colors.white,
+                      )),
+                      Flexible(flex: 30, child: RaisedButton(
+                        child: Text("?"),
+                        onPressed: () {
+                          showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text("Firebase Call Notification"),
+                                content: Text("The button allows you to be notified when your friend enters the room.\n"
+                                    "You will only be notified if your friend has also pressed that button.\n"
+                                    "If you share this room with multiple friends, they will all be notified.\n"
+                                    "However you can only talk to 1."),
+                              )
+                          );
+                        },
+                        color: DEFAULT_BUTTON_BG_COLOR,
+                        textColor: Colors.white,
+                      )),
+                    ]),),
+                  ],
+                ),
+                TextField(
+                  controller: _enterOwnName,
+                  decoration: InputDecoration(
+                    labelText: "Name",
+                    hintText: 'Enter your name'
                   ),
-                ],
-              ),
-              WidthFillingTextButton("Configure Ice Servers ("+iceServers['iceServers'].length.toString()+")",
-                onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder:
-                      (context) => IceServersConfigurationWidget()
-                  ));
-                  setState(() {}); //rebuild to rebuild ice server count in text field above
-                }
-              ),
-              TextField(
-                controller: _enterRoomName,
-                decoration: InputDecoration(
-                  labelText: "Room",
-                  hintText: 'Enter server \'room\''
                 ),
-              ),
-              TextField(
-                controller: _enterOwnName,
-                decoration: InputDecoration(
-                  labelText: "Name",
-                  hintText: 'Enter your name'
+                TextField(
+                  controller: _enterFriendName,
+                  decoration: InputDecoration(
+                    labelText: "Friend's Name",
+                    hintText: 'Enter your friend\'s name'
+                  ),
                 ),
-              ),
-              TextField(
-                controller: _enterFriendName,
-                decoration: InputDecoration(
-                  labelText: "Friend's Name",
-                  hintText: 'Enter your friend\'s name'
+                WidthFillingTextButton("Connect",
+                  onPressed: () => _attemptConnect()
                 ),
-              ),
-              WidthFillingTextButton("Connect",
-                onPressed: () => _attemptConnect(context)
-              ),
-            ],
-          )
+              ],
+            );
+          }
         ))
       ),
     );

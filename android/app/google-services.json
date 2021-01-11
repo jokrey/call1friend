@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "53162618656",
+    "project_id": "call1friend",
+    "storage_bucket": "call1friend.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:53162618656:android:246a5ed81c2eb234553145",
+        "android_client_info": {
+          "package_name": "com.jokrey.call1friend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "53162618656-gl08c69fsbvb908uss9uiigvaluqqape.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVETEM8qNzE6z8BRD8_5P29dxYZvY97sw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "53162618656-gl08c69fsbvb908uss9uiigvaluqqape.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

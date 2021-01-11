@@ -30,6 +30,9 @@ dependencies:
       url: git://github.com/jokrey/utility-algorithms-flutter.git
       ref: master
 
+  firebase_messaging: ^7.0.3
+  http: ^0.12.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
