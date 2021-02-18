@@ -177,10 +177,10 @@ packages:
     description:
       path: "."
       ref: master
-      resolved-ref: f21ced1b16ef38b78ea19192b7f56c4e239bb499
+      resolved-ref: "1708d5fd72ac157a1c5ec33fdd02c797695d9628"
       url: "git://github.com/jokrey/utility-algorithms-flutter.git"
     source: git
-    version: "0.0.3"
+    version: "0.0.4"
   js:
     dependency: transitive
     description:

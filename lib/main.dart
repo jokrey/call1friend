@@ -136,16 +136,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         restoreIfPossible(prefs, _enterOwnName,     "_enterOwnName");
         restoreIfPossible(prefs, _enterFriendName,  "_enterFriendName");
         if(prefs.containsKey("iceServers")) {
-          _enterIceServers.iceServers = jsonDecode(prefs.getString("iceServers"));
+          _enterIceServers.iceServers = [];
+          for (var decoded in jsonDecode(prefs.getString("iceServers"))) {
+            _enterIceServers.iceServers += [
+              (decoded as Map<String, dynamic>).cast<String, String>()
+            ];
+          }
         } else {
-          _enterIceServers.iceServers = [
-            {'url': 'stun:stun.l.google.com:19302'},
-            // {
-            //   'url': 'turn:classified.net:classified',
-            //   'username': 'classified',
-            //   'credential': 'classified'
-            // },
-          ];
+          _enterIceServers.iceServers = defaultIceServers;
         }
       });
     });
@@ -164,7 +162,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
   _saveEnteredData() {
     _prefs.then((prefs) {
-      prefs.setString("_enterProtocol",   _enterBaseUrl.text);
+      prefs.setString("_enterBaseUrl",   _enterBaseUrl.text);
       prefs.setString("_enterRoomName",   _enterRoomName.text);
       prefs.setString("_enterOwnName",    _enterOwnName.text);
       prefs.setString("_enterFriendName", _enterFriendName.text);
