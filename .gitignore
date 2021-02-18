@@ -22,8 +22,7 @@ key.properties
 
 local.properties
 
-device-[*].png
-device-[*].jpeg
+device-2021-01-11-192028.png
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
