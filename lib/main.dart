@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:jokrey_utilities/jokrey_utilities.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,40 +14,41 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final _enterIceServers = IceServersConfigurationController()
+    ..iceServers = defaultIceServers;
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
-  final _enterProtocol = TextEditingController()..text = "https";
-  final _enterHost = TextEditingController();
-  final _enterPort = TextEditingController();
+  final _enterBaseUrl = TextEditingController();
   final _enterRoomName = TextEditingController();
   final _enterOwnName = TextEditingController();
   final _enterFriendName = TextEditingController();
 
   _attemptConnect(BuildContext context) async {
     var initialConnectSuccessful = await Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) {
-              return VCall1to1Widget(
-                call: VCall1to1(_enterOwnName.text, _enterFriendName.text,
-                    RoomSignalerImpl(
-                        _enterRoomName.text, _enterOwnName.text,
-                        _enterProtocol.text != 'http',
-                        _enterHost.text, int.parse(_enterPort.text)
-                    )
-                ),
-              );
-            }
-        )
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return VCall1to1Widget(
+            call: VCall1to1(_enterOwnName.text, _enterFriendName.text,
+              RoomSignalerImpl(
+                _enterRoomName.text,
+                _enterOwnName.text,
+                _enterBaseUrl.text,
+              ),
+              _enterIceServers.iceServers,
+            ),
+          );
+        }
+      )
     );
 
     if(!initialConnectSuccessful) {
       Scaffold.of(context)
         ..removeCurrentSnackBar()
         ..showSnackBar(
-            SnackBar(
-                content: Text("Could not connect to signaling server"),
-                duration: Duration(seconds: 25)
-            )
+          SnackBar(
+            content: Text("Could not connect to signaling server"),
+            duration: Duration(seconds: 25)
+          )
         );
     }
   }
@@ -65,47 +65,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           builder: (context) => Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Row(
-                children: [
-                  Text("Enter server: ", textScaleFactor: 1.1),
-                  Flexible(
-                    flex: 15,
-                    child: TextField(
-                      controller: _enterProtocol,
-                      textAlign: TextAlign.right,
-                      enabled: false,
-                      decoration: InputDecoration(hintText: 'http/https'),
-                    ),
-                  ),
-                  Text("://"),
-                  Flexible(
-                    flex: 60,
-                    child: TextField(
-                      controller: _enterHost,
-                      textAlign: TextAlign.right,
-                      decoration: InputDecoration(hintText: 'address'),
-                    ),
-                  ),
-                  Text(":"),
-                  Flexible(
-                    flex: 25,
-                    child: TextField(
-                      controller: _enterPort,
-                      decoration: InputDecoration(hintText: 'port'),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly
-                      ],
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: _enterBaseUrl,
+                decoration: InputDecoration(
+                  labelText: "Signaling URL (using wsclientable)",
+                  hintText:
+                  'Enter base server url {ex: http(s)://dns(:port)/route}',
+                ),
               ),
-              WidthFillingTextButton("Configure Ice Servers ("+iceServers['iceServers'].length.toString()+")",
+              WidthFillingTextButton(
+                "Configure Ice Servers(${_enterIceServers.iceServers.length})",
                 onPressed: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder:
-                      (context) => IceServersConfigurationWidget()
-                  ));
-                  setState(() {}); //rebuild to rebuild ice server count in text field above
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          IceServersConfigurationWidget(_enterIceServers),
+                    ),
+                  );
+                  setState(() {}); //rebuild ice server count in text above
                 }
               ),
               TextField(
@@ -153,16 +131,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   _restoreEnteredData() {
     _prefs.then((prefs) {
       setState(() {
-        restoreIfPossible(prefs, _enterProtocol,    "_enterProtocol");
-        restoreIfPossible(prefs, _enterHost,        "_enterHost");
-        restoreIfPossible(prefs, _enterPort,        "_enterPort");
+        restoreIfPossible(prefs, _enterBaseUrl,    "_enterBaseUrl");
         restoreIfPossible(prefs, _enterRoomName,    "_enterRoomName");
         restoreIfPossible(prefs, _enterOwnName,     "_enterOwnName");
         restoreIfPossible(prefs, _enterFriendName,  "_enterFriendName");
         if(prefs.containsKey("iceServers")) {
-          iceServers['iceServers'] = jsonDecode(prefs.getString("iceServers"));
+          _enterIceServers.iceServers = jsonDecode(prefs.getString("iceServers"));
         } else {
-          iceServers['iceServers'] = [
+          _enterIceServers.iceServers = [
             {'url': 'stun:stun.l.google.com:19302'},
             // {
             //   'url': 'turn:classified.net:classified',
@@ -188,100 +164,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
   _saveEnteredData() {
     _prefs.then((prefs) {
-      prefs.setString("_enterProtocol",   _enterProtocol.text);
-      prefs.setString("_enterHost",       _enterHost.text);
-      prefs.setString("_enterPort",       _enterPort.text);
+      prefs.setString("_enterProtocol",   _enterBaseUrl.text);
       prefs.setString("_enterRoomName",   _enterRoomName.text);
       prefs.setString("_enterOwnName",    _enterOwnName.text);
       prefs.setString("_enterFriendName", _enterFriendName.text);
-      prefs.setString("iceServers", jsonEncode(iceServers['iceServers']));
+      prefs.setString("iceServers", jsonEncode(_enterIceServers.iceServers));
     });
-  }
-}
-
-
-
-class IceServersConfigurationWidget extends StatefulWidget {
-  @override
-  _IceServersConfigurationWidgetState createState() => _IceServersConfigurationWidgetState();
-}
-
-class _IceServersConfigurationWidgetState extends State<IceServersConfigurationWidget> {
-  final serverConfigurators = List<IceServerConfigurationWidget>();
-  _IceServersConfigurationWidgetState() {
-    print(iceServers);
-    print(iceServers['iceServers']);
-    for(var iceS in iceServers['iceServers']) {
-      var url = iceS['url'];
-      var username = iceS['username'] ?? "";
-      var credential = iceS['credential'] ?? "";
-      if(url != null) {
-        serverConfigurators.add(IceServerConfigurationWidget(url, username, credential));
-      }
-    }
-  }
-
-  _applyChangesAndPop() {
-    var jsonListOfIceServers = List<dynamic>();
-    for(var iceConfigW in serverConfigurators) {
-      String url = iceConfigW.urlC.text;
-      if(iceConfigW.representsTurnServer) {
-        jsonListOfIceServers.add(
-            {
-              'url': url.startsWith('turn:') ? url : 'turn:' + url,
-              'username': iceConfigW.turnUsernameC.text,
-              'credential': iceConfigW.turnCredentialC.text
-            }
-        );
-      } else {
-        jsonListOfIceServers.add(
-            {
-              'url': url.startsWith('stun:') ? url : 'stun:' + url
-            }
-        );
-      }
-    }
-    iceServers['iceServers'] = jsonListOfIceServers;
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(8),
-              children: serverConfigurators.map((e) {
-                return Card(child: Column(
-                  children: [
-                    Text(
-                      "Ice Server: ",
-                      style: TextStyle(fontWeight: FontWeight.bold)
-                    ),
-                    e,
-                    WidthFillingTextButton("Remove", bg: Color(0xffA71D31),
-                      onPressed: () => setState((){
-                        serverConfigurators.remove(e);
-                      })
-                    ),
-                  ],
-                ));
-              }).toList(),
-            ),
-          ),
-          WidthFillingTextButton("Add Ice Server", bg: Color(0xffA71D31),
-            onPressed: () => setState(() {
-              serverConfigurators.add(IceServerConfigurationWidget("", "", ""));
-            })
-          ),
-          WidthFillingTextButton("Apply Changes",
-            onPressed: _applyChangesAndPop,
-          ),
-        ],
-      ))
-    );
   }
 }
 
@@ -296,52 +184,6 @@ class WidthFillingTextButton extends SizedBox {
         onPressed: onPressed,
         color: bg,
         textColor: Colors.white,
-      ));
-}
-
-//stun or turn
-class IceServerConfigurationWidget extends StatefulWidget {
-  final urlC = TextEditingController();
-  final turnUsernameC = TextEditingController();
-  final turnCredentialC = TextEditingController();
-
-
-  bool get representsTurnServer =>
-      turnUsernameC.text.isNotEmpty && turnCredentialC.text.isNotEmpty;
-
-  IceServerConfigurationWidget(String url, username, credential) {
-    urlC.text = url;
-    turnUsernameC.text = username;
-    turnCredentialC.text = credential;
-  }
-
-  @override
-  _IceServerConfigurationWidgetState createState() => _IceServerConfigurationWidgetState();
-}
-class _IceServerConfigurationWidgetState extends State<IceServerConfigurationWidget> {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextField(
-          controller: widget.urlC,
-          decoration: InputDecoration(
-              labelText: "URL (Stun/Turn)", hintText: "enter a url"
-          )
-        ),
-        TextField(
-          controller: widget.turnUsernameC,
-          decoration: InputDecoration(
-              labelText: "Username (Turn only)", hintText: "enter the username or leave it blank"
-          )
-        ),
-        TextField(
-          controller: widget.turnCredentialC,
-          decoration: InputDecoration(
-              labelText: "Credential (Turn only)", hintText: "enter the credential or leave it blank"
-          )
-        )
-      ],
+      )
     );
-  }
 }
